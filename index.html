@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LAX IOS v1.7.0</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        appBg: '#09090b', // Nền đen sâu
+                        panel: '#1c1c1e', // Nền các khối
+                        panelHover: '#2c2c2e',
+                        laxCyan: '#00e5ff',
+                        laxGreen: '#32d74b',
+                        laxYellow: '#ffd60a',
+                        textGray: '#8e8e93',
+                        modalBg: '#252525'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #09090b;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow-x: hidden;
+            /* Thêm background pattern nhẹ giống ảnh */
+            background-image: radial-gradient(circle at center, #111 0%, #09090b 100%);
+        }
+
+        /* Ẩn thanh cuộn */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        .screen { display: none; min-height: 100vh; padding-bottom: 120px; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
+
+        /* Khung Panel viền mờ */
+        .glass-panel {
+            background-color: #1c1c1e;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 20px;
+        }
+
+        /* Modals & Overlays */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 50;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .bottom-sheet {
+            position: fixed; bottom: 0; left: 0; right: 0; background: #1c1c1e;
+            border-top-left-radius: 24px; border-top-right-radius: 24px;
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+            z-index: 51; padding-bottom: env(safe-area-inset-bottom);
+        }
+        .bottom-sheet.active { transform: translateY(0); }
+
+        .modal-center {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -40%) scale(0.95);
+            background: #252525; width: 90%; max-width: 320px; border-radius: 20px;
+            opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 52;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .modal-center.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+
+        /* Nút tính năng */
+        .feature-btn {
+            background: #1c1c1e; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s ease;
+        }
+        .feature-btn.active {
+            border-color: #00e5ff; background: rgba(0, 229, 255, 0.05);
+        }
+        .feature-btn.active .f-icon, .feature-btn.active .f-title {
+            color: #00e5ff;
+        }
+
+        /* Nav Tabs */
+        .nav-tab { color: #8e8e93; border-bottom: 2px solid transparent; transition: all 0.2s ease; }
+        .nav-tab.active { color: #00e5ff; border-bottom-color: #00e5ff; font-weight: 600; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Căn chỉnh ảnh Game */
+        .game-icon-bg {
+            background: linear-gradient(135deg, #ff7e5f, #feb47b);
+            position: relative;
+        }
+        .game-icon-bg-2 {
+            background: linear-gradient(135deg, #8e2de2, #4a00e0);
+        }
+        .max-badge {
+            position: absolute; top: -2px; left: -2px;
+            background-color: #ffd60a; color: black; font-size: 8px; font-weight: bold;
+            padding: 2px 4px; border-radius: 6px 0 6px 0; z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: MÀN HÌNH CHÍNH -->
+    <div id="screen-home" class="screen active relative">
+        <div class="p-4 pt-6">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-xl font-bold tracking-wider uppercase text-white drop-shadow-md">
+                        LAX IOS <span class="text-[10px] font-normal text-textGray bg-panel px-2 py-0.5 rounded-full ml-1 border border-gray-700 align-middle">v1.7.0</span>
+                    </h1>
+                </div>
+                <button onclick="openModal('langModal')" class="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-textGray hover:text-white transition">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+
+            <!-- Thiết bị / HĐH / Tương thích -->
+            <div class="glass-panel p-3 flex justify-between items-center text-center divide-x divide-gray-700/50 mb-6">
+                <div class="flex-1">
+                    <p class="text-[9px] text-textGray font-semibold uppercase mb-1">Thiết Bị</p>
+                    <p id="dev-name" class="text-[13px] font-semibold">Đang tải...</p>
+                </div>
+                <div class="flex-1">
+                    <p class="text-[9px] text-textGray font-semibold uppercase mb-1">Hệ Điều Hành</p>
+                    <p id="dev-os" class="text-[13px] font-semibold">iOS ...</p>
+                </div>
+                <div class="flex-1">
+                    <p class="text-[9px] text-textGray font-semibold uppercase mb-1">Tương Thích</p>
+                    <p id="dev-compat" class="text-[13px] font-semibold flex items-center justify-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span> ...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Danh sách ứng dụng -->
+            <h2 class="text-[10px] text-textGray font-semibold uppercase mb-3 pl-1 tracking-wider">Ứng Dụng (2)</h2>
+            <div class="space-y-3">
+                <!-- Free Fire Max -->
+                <div onclick="selectGame('Free Fire Max', 'com.dts.freefiremax')" class="glass-panel p-3 flex items-center justify-between active:scale-[0.98] transition cursor-pointer">
+                    <div class="flex items-center gap-4">
+                        <div class="w-[60px] h-[60px] rounded-xl overflow-hidden relative game-icon-bg shadow-inner">
+                            <div class="max-badge">MAX</div>
+                            <img src="https://images.unsplash.com/photo-1614027164847-1b28cfe1df60?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="FF Max" class="w-full h-full object-cover opacity-80 mix-blend-overlay">
+                            <i class="fa-solid fa-dragon absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl text-white/90"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-[15px] mb-0.5 text-white">Free Fire Max</h3>
+                            <p class="text-[10px] text-textGray font-mono">com.dts.freefiremax</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="status-ffmax" class="text-[9px] bg-[#151515] text-gray-500 px-2.5 py-1 rounded border border-gray-700/50 font-bold tracking-wider">OFFLINE</span>
+                        <i class="fa-solid fa-chevron-right text-textGray text-xs"></i>
+                    </div>
+                </div>
+
+                <!-- Free Fire -->
+                <div onclick="selectGame('Free Fire', 'com.dts.freefireth')" class="glass-panel p-3 flex items-center justify-between active:scale-[0.98] transition cursor-pointer">
+                    <div class="flex items-center gap-4">
+                        <div class="w-[60px] h-[60px] rounded-xl overflow-hidden relative game-icon-bg-2 shadow-inner">
+                            <div class="max-badge" style="background: #ff3b30; color: white;">9</div>
+                            <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="FF" class="w-full h-full object-cover opacity-70 mix-blend-overlay">
+                            <i class="fa-solid fa-fire absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl text-white/90"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-[15px] mb-0.5 text-white">Free Fire</h3>
+                            <p class="text-[10px] text-textGray font-mono">com.dts.freefireth</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="status-ff" class="text-[9px] bg-[#151515] text-gray-500 px-2.5 py-1 rounded border border-gray-700/50 font-bold tracking-wider">OFFLINE</span>
+                        <i class="fa-solid fa-chevron-right text-textGray text-xs"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer cố định ở dưới -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-[#09090b] to-transparent pb-6 z-10">
+            <!-- Thông báo LAX -->
+            <div class="glass-panel p-3 mb-3 flex items-center gap-3">
+                <i class="fa-solid fa-bullhorn text-textGray text-sm ml-1"></i>
+                <p class="text-xs text-gray-300 font-medium">LAX IOS Mãi Chất, Em Yêu LAX IOS <3</p>
+            </div>
+
+            <!-- License Key -->
+            <div class="glass-panel p-3 flex items-center justify-between shadow-2xl relative overflow-hidden">
+                <!-- Hiệu ứng sáng nhẹ khi active -->
+                <div id="key-active-glow" class="absolute inset-0 bg-laxGreen/5 hidden"></div>
+                
+                <div class="flex items-center gap-3 relative z-10">
+                    <div id="key-status-dot" class="w-2 h-2 rounded-full bg-gray-500 ml-1"></div>
+                    <div>
+                        <h4 class="font-bold text-[13px] text-white">License Key</h4>
+                        <p id="key-status-text" class="text-[10px] text-textGray mt-0.5">Chưa kích hoạt — nhấn Thêm Key</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 relative z-10">
+                    <!-- Nút mở Popup ID -->
+                    <button onclick="openModal('udidModal')" class="w-8 h-8 rounded-lg bg-[#2c2c2e] flex items-center justify-center text-textGray hover:text-white transition">
+                        <i class="fa-solid fa-shield-halved text-sm"></i>
+                    </button>
+                    <button class="w-8 h-8 rounded-lg bg-[#2c2c2e] flex items-center justify-center text-textGray hover:text-white transition">
+                        <i class="fa-solid fa-circle-info text-sm"></i>
+                    </button>
+                    <button onclick="openModal('keyModal')" class="bg-[#2c2c2e] hover:bg-gray-600 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Thêm Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- SCREEN 2: GIAO DIỆN MOD -->
+    <div id="screen-mod" class="screen relative">
+        <!-- Header Cố định -->
+        <div class="sticky top-0 bg-appBg/95 backdrop-blur-lg z-40 pb-2 border-b border-gray-800/50">
+            <div class="flex items-center px-2 py-3 pt-safe">
+                <button onclick="showScreen('home')" class="text-laxCyan flex items-center gap-1 font-medium px-3 py-1 text-sm">
+                    <i class="fa-solid fa-chevron-left text-xs"></i> Back
+                </button>
+                <h1 id="mod-game-title" class="flex-1 text-center font-bold text-[15px] pr-12 text-white">Free Fire Max</h1>
+            </div>
+
+            <!-- Game Banner Mini -->
+            <div class="px-5 pb-3 flex items-center gap-3">
+                <div id="mod-game-icon" class="w-10 h-10 rounded-lg game-icon-bg overflow-hidden relative">
+                    <i class="fa-solid fa-dragon absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/90"></i>
+                </div>
+                <div>
+                    <h3 id="mod-game-name" class="font-bold text-[13px] text-white">Free Fire Max</h3>
+                    <p id="mod-game-pkg" class="text-[9px] text-textGray font-mono">com.dts.freefiremax</p>
+                    <p class="text-[9px] text-laxGreen font-bold flex items-center gap-1 mt-0.5 tracking-wider">
+                        <span class="w-1.5 h-1.5 bg-laxGreen rounded-full block animate-pulse"></span> ONLINE
+                    </p>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex px-3 justify-between pt-1">
+                <button onclick="switchTab('proxy')" class="nav-tab active pb-2 flex-1 text-center flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-[15px]"></i> <span class="text-[10px]">Proxy</span>
+                </button>
+                <button onclick="switchTab('dinhvi')" class="nav-tab pb-2 flex-1 text-center flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-location-arrow text-[15px]"></i> <span class="text-[10px]">Định Vị</span>
+                </button>
+                <button onclick="switchTab('modnv')" class="nav-tab pb-2 flex-1 text-center flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-user-ninja text-[15px]"></i> <span class="text-[10px]">Mod NV</span>
+                </button>
+                <button onclick="switchTab('esp')" class="nav-tab pb-2 flex-1 text-center flex flex-col items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-[15px]"></i> <span class="text-[10px]">ESP</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 pt-4 pb-32">
+            <!-- Trạng thái DNS -->
+            <div class="flex items-center gap-2 mb-2 pl-1">
+                <div class="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                <span class="text-[10px] text-gray-400">Đang dùng DNS mặc định</span>
+            </div>
+            <div class="glass-panel p-3 mb-6 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-laxCyan/10 text-laxCyan rounded-lg flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-shield"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-[13px] text-white">DNS Antiband 4.0</h4>
+                        <p class="text-[10px] text-textGray">DNS NextDNS • Chống Game Quét</p>
+                        <p class="text-[9px] text-laxCyan mt-0.5 font-medium">DNS-over-HTTPS</p>
+                    </div>
+                </div>
+                <button class="w-9 h-9 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-white/10 transition">
+                    <i class="fa-solid fa-power-off text-sm"></i>
+                </button>
+            </div>
+
+            <!-- TAB 1: PROXY -->
+            <div id="tab-proxy" class="tab-content block">
+                <!-- Group 1 -->
+                <div class="mb-6 border-l-[3px] border-laxCyan pl-3 relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold uppercase tracking-wider flex items-center gap-2 text-[11px] text-white">
+                            <i class="fa-solid fa-bolt text-textGray"></i> PROXY LAX IOS VIP
+                        </h2>
+                        <span class="text-[8px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600 font-bold">AUTO</span>
+                    </div>
+                    
+                    <div class="glass-panel p-2.5 mb-3 flex justify-between items-center bg-[#18181a]">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center"><i class="fa-solid fa-play text-[10px] ml-0.5"></i></div>
+                            <div>
+                                <h4 class="font-bold text-[11px] text-white">Xem Video Hướng Dẫn</h4>
+                                <p class="text-[9px] text-textGray">Hướng dẫn cài đặt & bật Proxy chi tiết</p>
+                            </div>
+                        </div>
+                        <button class="text-[9px] font-bold text-laxCyan bg-laxCyan/10 px-3 py-1 rounded text-center">XEM NGAY</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Proxy Body - Xoá Máu Vàng')">
+                            <i class="fa-solid fa-person f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Proxy Body</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Full Đỏ Xoá Máu Vàng</p>
+                        </div>
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Proxy Cổ V1 - Aim Ít Lộ')">
+                            <i class="fa-solid fa-crosshairs f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Proxy Cổ V1</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Aim Cổ Ít Lộ Hơn</p>
+                        </div>
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Proxy Cổ V2 - Bám Hơn')">
+                            <i class="fa-solid fa-bullseye f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Proxy Cổ V2</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Vùng Cổ Máu Đỏ To Hơn, Bám Hơn</p>
+                        </div>
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Proxy Magic - Đạn Ma Thuật')">
+                            <i class="fa-solid fa-wand-magic-sparkles f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Proxy Magic</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Đạn Ma Thuật</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Group 2 -->
+                <div class="border-l-[3px] border-textGray pl-3 relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold uppercase tracking-wider flex items-center gap-2 text-[11px] text-white">
+                            <i class="fa-solid fa-hand-pointer text-textGray"></i> PROXY LAX IOS VIP V2
+                        </h2>
+                        <span class="text-[8px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600 font-bold">V2</span>
+                    </div>
+
+                    <div class="glass-panel p-2.5 mb-3 flex justify-between items-center bg-[#18181a]">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center"><i class="fa-solid fa-play text-[10px] ml-0.5"></i></div>
+                            <div>
+                                <h4 class="font-bold text-[11px] text-white">Xem Video Hướng Dẫn</h4>
+                                <p class="text-[9px] text-textGray">Hướng dẫn cài đặt & bật Proxy chi tiết</p>
+                            </div>
+                        </div>
+                        <button class="text-[9px] font-bold text-laxCyan bg-laxCyan/10 px-3 py-1 rounded text-center">XEM NGAY</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Aim Drag - Kéo Nhẹ')">
+                            <i class="fa-solid fa-hand-pointer f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Aim Drag</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Kéo Nhẹ Tâm Lên Đỉnh Đầu</p>
+                        </div>
+                        <div class="feature-btn proxy-opt rounded-2xl p-4 cursor-pointer" onclick="selectModProxy(this, 'Proxy Cổ Dị Tật - Ghim Cổ')">
+                            <i class="fa-solid fa-crosshairs f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Proxy Cổ Dị Tật</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Tâm Súng Được Ghim Thẳng Vào Cổ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: ĐỊNH VỊ -->
+            <div id="tab-dinhvi" class="tab-content hidden">
+                 <div class="border-l-[3px] border-laxCyan pl-3 relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold uppercase tracking-wider flex items-center gap-2 text-[11px] text-white">
+                            <i class="fa-solid fa-location-arrow text-textGray"></i> ĐỊNH VỊ SÚNG
+                        </h2>
+                        <span class="text-[8px] bg-red-500/20 text-red-400 font-bold px-1.5 py-0.5 rounded border border-red-500/30">LIVE</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                         <div class="feature-btn dinhvi-opt rounded-2xl p-4 cursor-pointer active border-laxCyan bg-laxCyan/5" onclick="selectModGeneral('dinhvi', this, 'Khôi Phục Gốc Đã Tắt Định Vị')">
+                            <i class="fa-solid fa-xmark f-icon text-xl text-laxCyan mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-laxCyan">Tắt Định Vị & Mod Skin NV</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Khôi Phục Gốc Xoá Định Vị Và ModSkin</p>
+                        </div>
+                        <div class="feature-btn dinhvi-opt rounded-2xl p-4 cursor-pointer" onclick="selectModGeneral('dinhvi', this, 'Định Vị Súng Đã Bật')">
+                            <i class="fa-solid fa-palette f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Định Vị Súng Màu Tự Chọn</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Tùy Chỉnh Màu X-Ray & Viền Súng</p>
+                        </div>
+                        <div class="feature-btn dinhvi-opt rounded-2xl p-4 cursor-pointer col-span-2 sm:col-span-1" onclick="selectModGeneral('dinhvi', this, 'Định Vị Nhân Vật Đã Bật')">
+                            <i class="fa-solid fa-person-walking f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Định Vị Nhân Vật Tự Chọn</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Hologram Xuyên Tường Màu Tự Chọn</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: MOD NV -->
+            <div id="tab-modnv" class="tab-content hidden">
+                <div class="border-l-[3px] border-laxCyan pl-3 relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold uppercase tracking-wider flex items-center gap-2 text-[11px] text-white">
+                            <i class="fa-solid fa-user-ninja text-textGray"></i> MOD NHÂN VẬT
+                        </h2>
+                        <span class="text-[8px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600 font-bold">SOON</span>
+                    </div>
+                    <div class="glass-panel p-8 text-center border-dashed border-gray-700 mt-6">
+                        <i class="fa-solid fa-clock text-3xl text-gray-600 mb-3 block"></i>
+                        <p class="text-xs text-gray-400">Mod Nhân Vật - Đang Cập Nhật Thêm Tính Năng Mới</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: ESP -->
+            <div id="tab-esp" class="tab-content hidden">
+                 <div class="border-l-[3px] border-laxCyan pl-3 relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold uppercase tracking-wider flex items-center gap-2 text-[11px] text-white">
+                            <i class="fa-solid fa-eye text-textGray"></i> ESP NHÂN VẬT
+                        </h2>
+                        <span class="text-[8px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600 font-bold">NEW</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="feature-btn esp-opt rounded-2xl p-4 cursor-pointer" onclick="selectModGeneral('esp', this, 'ESP Box Kích Hoạt')">
+                            <i class="fa-solid fa-eye f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">ESP Box</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Thấy nhân vật xuyên tường</p>
+                        </div>
+                        <div class="feature-btn esp-opt rounded-2xl p-4 cursor-pointer" onclick="selectModGeneral('esp', this, 'Aim Cân R8 Kích Hoạt')">
+                            <i class="fa-solid fa-crosshairs f-icon text-xl text-textGray mb-2 block"></i>
+                            <h4 class="font-bold text-[12px] f-title mb-1 text-white">Aim Cân R8</h4>
+                            <p class="text-[9px] text-textGray leading-tight">Lock head — không ESP box</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Nút Mở Game -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-appBg to-transparent pb-6 z-40">
+            <div class="glass-panel py-2 mb-3 bg-[#151515]">
+                <p id="mod-status-text" class="text-center text-[10px] text-gray-400 font-medium">
+                    Đã Sẵn Sàng - Bạn Đã Có Thể Bắt Đầu Kích Hoạt Proxy
+                </p>
+            </div>
+            
+            <button class="w-full bg-[#1c1c1e] border border-laxCyan/50 hover:bg-[#2c2c2e] active:scale-[0.98] transition-all text-laxCyan font-bold text-sm py-3.5 rounded-xl flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.1)]">
+                <i class="fa-solid fa-play text-xs"></i> MỞ GAME
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ================= MODALS ================= -->
+    <div id="modalOverlay" class="modal-overlay" onclick="closeAllModals()"></div>
+
+    <!-- 1. Modal Ngôn Ngữ -->
+    <div id="langModal" class="bottom-sheet">
+        <div class="p-6 pt-4">
+            <div class="w-10 h-1.5 bg-gray-600 rounded-full mx-auto mb-6"></div>
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-full bg-[#2c2c2e] flex items-center justify-center text-xl text-white"><i class="fa-solid fa-globe"></i></div>
+                <div>
+                    <h2 class="font-bold text-lg text-white leading-tight">Chọn Ngôn Ngữ</h2>
+                    <p class="text-xs text-textGray">Choose Your Language</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div onclick="setLang('vi', this)" class="lang-btn relative border-2 border-laxCyan bg-laxCyan/5 rounded-2xl p-5 flex flex-col items-center gap-2 cursor-pointer transition">
+                    <div class="absolute top-2 right-2 text-laxCyan active-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <img src="https://flagcdn.com/w80/vn.png" alt="VN" class="w-8 h-6 rounded shadow-sm object-cover">
+                    <span class="font-semibold text-xs text-white mt-1">Tiếng Việt</span>
+                </div>
+                <div onclick="setLang('en', this)" class="lang-btn relative border border-gray-700 bg-panel rounded-2xl p-5 flex flex-col items-center gap-2 cursor-pointer transition">
+                    <div class="absolute top-2 right-2 text-laxCyan hidden active-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <img src="https://flagcdn.com/w80/us.png" alt="EN" class="w-8 h-6 rounded shadow-sm object-cover">
+                    <span class="font-semibold text-xs text-white mt-1">English</span>
+                </div>
+            </div>
+            <button onclick="closeModal('langModal')" class="w-full bg-white text-black font-bold text-[15px] py-3.5 rounded-xl active:scale-95 transition">Xác Nhận / Confirm</button>
+        </div>
+    </div>
+
+    <!-- 2. Modal ID Thiết bị (Giống Ảnh 4) -->
+    <div id="udidModal" class="modal-center" style="background: #1c1c1e;">
+        <div class="p-5 text-center">
+            <h2 class="font-bold text-[15px] mb-1 flex items-center justify-center gap-1.5 text-white">
+                <span class="bg-purple-500/20 text-purple-400 text-[10px] px-1 py-0.5 rounded font-bold border border-purple-500/30">ID</span> 
+                ID Thiết Bị
+            </h2>
+            <p class="text-[11px] text-gray-400 mb-4">Nguồn: Vendor ID (eSign ổn định)</p>
+            
+            <p id="modal-udid-text" class="text-[12px] font-mono mb-4 break-all px-2 text-white">IV-ĐANG-TẢI-ID...</p>
+            
+            <p class="text-[11px] text-gray-400 mb-5 px-2">Gửi ID này cho admin khi cần mở khoá / chuyển máy.</p>
+        </div>
+        <!-- Buttons ngang bằng viền -->
+        <div class="flex border-t border-gray-700/50 divide-x divide-gray-700/50">
+            <button onclick="closeModal('udidModal')" class="flex-1 py-3 text-[#0a84ff] font-semibold text-sm active:bg-white/5 transition rounded-bl-xl">Đóng</button>
+            <button onclick="copyUDID(this)" class="flex-1 py-3 text-[#0a84ff] text-sm active:bg-white/5 transition rounded-br-xl">Sao chép ID</button>
+        </div>
+    </div>
+
+    <!-- 3. Modal Nhập Key (Giống Ảnh 3) -->
+    <div id="keyModal" class="modal-center" style="background: #1c1c1e;">
+        <div class="p-5 text-center">
+            <h2 class="font-bold text-[15px] mb-1 text-white">License Key</h2>
+            <p class="text-[11px] text-gray-400 mb-3">Dán key để kích hoạt.</p>
+            
+            <p class="text-[11px] text-gray-400 mb-1">Thiết bị này:</p>
+            <p id="modal-key-udid" class="text-[11px] font-mono mb-4 break-all px-2 text-white">IV-...</p>
+
+            <div class="relative mb-1">
+                <input type="text" id="input-key" placeholder="Nhập / dán key..." class="w-full bg-[#0a0a0c] border border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition text-white placeholder-gray-600">
+            </div>
+            <p id="key-error" class="text-red-400 text-[9px] h-3 text-left pl-1 mb-2"></p>
+        </div>
+        <!-- Menu dọc -->
+        <div class="divide-y divide-gray-700/50 border-t border-gray-700/50">
+            <button onclick="activateKey()" class="w-full py-3 text-[#0a84ff] text-sm active:bg-white/5 transition">Kích hoạt</button>
+            <button onclick="copyUDID(this)" class="w-full py-3 text-[#0a84ff] text-sm active:bg-white/5 transition">Sao chép UDID</button>
+            <button onclick="closeModal('keyModal')" class="w-full py-3 text-[#0a84ff] font-semibold text-sm active:bg-white/5 transition rounded-b-xl">Đóng</button>
+        </div>
+    </div>
+
+    <!-- 4. Modal Thông báo Beta (Giống Ảnh 5) -->
+    <div id="betaModal" class="modal-center" style="width: 85%; max-width: 320px; background: #1c1c1e;">
+        <div class="p-5">
+            <h2 class="font-bold text-base text-center mb-3 text-laxCyan">Thông Báo</h2>
+            
+            <div class="text-[11px] text-gray-300 space-y-2 text-center leading-relaxed">
+                <p>Xin Chào Các Bạn, Đây Là Bản Beta Thử Nghiệm</p>
+                <p>LAX IOS Cảm Ơn Các Bạn Đã Đợi Phiên Bản Mới Của LAX IOS</p>
+                <p>Có Lỗi Gì Cứ Góp Ý Nha, Chân Thành Cảm Ơn Các Bạn</p>
+                <div class="border-t border-dashed border-gray-600 my-2.5"></div>
+                <p>Hello everyone, this is a beta test version.</p>
+                <p>Currently, only AimBot and AimBot Vector are available for use.</p>
+                <p>LAX IOS thanks you all for waiting for the new version of LAX IOS.</p>
+                <p>If you encounter any bugs or issues, feel free to give feedback. Thank you very much!</p>
+            </div>
+
+            <button onclick="acceptBeta()" class="w-full bg-white text-black font-bold text-sm py-3 rounded-lg mt-5 active:scale-95 transition">ĐÃ HIỂU</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // --- 1. LẤY THÔNG TIN THIẾT BỊ & LOGIC TƯƠNG THÍCH ---
+        let currentUDID = "";
+        
+        function generateUDID() {
+            return "IV-" + Math.random().toString(16).slice(2,10).toUpperCase() + "-" + 
+                   Math.random().toString(16).slice(2,6).toUpperCase() + "-425E-8385-" + 
+                   Math.random().toString(10).slice(2,15).toUpperCase();
+        }
+
+        function initDeviceInfo() {
+            const ua = navigator.userAgent;
+            let device = "iPhone";
+            let osVer = "18.7.10"; // Mặc định giả lập
+            let osText = "iOS 18.7.10";
+
+            // Nhận diện thật nếu trên iOS
+            if (/iPhone|iPad|iPod/.test(ua)) {
+                device = /iPad/.test(ua) ? "iPad" : "iPhone";
+                const match = ua.match(/OS (\d+)_(\d+)_?(\d+)?/);
+                if (match) {
+                    osVer = `${match[1]}.${match[2]}`;
+                    osText = `iOS ${osVer}`;
+                }
+            } else if (/Android/.test(ua)) {
+                device = "Android";
+                osText = "Android OS";
+                osVer = "0";
+            } else {
+                // Trên máy tính - giữ nguyên giả lập giống ảnh
+                device = "iPhone XS Max";
+            }
+
+            document.getElementById('dev-name').innerText = device;
+            document.getElementById('dev-os').innerText = osText;
+
+            // Logic Tương Thích: 16.0 -> 18.1 (Hỗ trợ), 18.2+ (Không Hỗ Trợ)
+            const compatEl = document.getElementById('dev-compat');
+            let v = parseFloat(osVer);
+            
+            if (v >= 16.0 && v <= 18.1) {
+                compatEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#32d74b]"></span> <span class="text-[#32d74b]">Hỗ Trợ</span>`;
+            } else {
+                compatEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#ffd60a]"></span> <span class="text-[#ffd60a]">Không Hỗ Trợ</span>`;
+            }
+
+            // Set UDID
+            currentUDID = generateUDID();
+            document.getElementById('modal-udid-text').innerText = currentUDID;
+            document.getElementById('modal-key-udid').innerText = currentUDID;
+        }
+
+        // --- 2. QUẢN LÝ MODAL & CHUYỂN MÀN HÌNH ---
+        let openModalId = null;
+        let selectedGameTitle = "";
+        let selectedGamePkg = "";
+
+        function openModal(id) {
+            closeAllModals();
+            document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById(id).classList.add('active');
+            openModalId = id;
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+            document.getElementById('modalOverlay').classList.remove('active');
+            openModalId = null;
+        }
+
+        function closeAllModals() {
+            if (openModalId) closeModal(openModalId);
+        }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + id).classList.add('active');
+            window.scrollTo(0,0);
+        }
+
+        // --- 3. VÀO GAME (KIỂM TRA KEY) ---
+        function selectGame(name, pkg) {
+            if(!isKeyActive) {
+                openModal('keyModal');
+                document.getElementById('key-error').innerText = "Vui lòng thêm key để sử dụng!";
+                return;
+            }
+            selectedGameTitle = name;
+            selectedGamePkg = pkg;
+            openModal('betaModal');
+        }
+
+        function acceptBeta() {
+            closeModal('betaModal');
+            // Cập nhật Header Game Mod
+            document.getElementById('mod-game-title').innerText = selectedGameTitle;
+            document.getElementById('mod-game-name').innerText = selectedGameTitle;
+            document.getElementById('mod-game-pkg').innerText = selectedGamePkg;
+            
+            // Đổi icon game
+            const iconBg = document.getElementById('mod-game-icon');
+            if(selectedGameTitle.includes('Max')) {
+                iconBg.className = 'w-10 h-10 rounded-lg game-icon-bg overflow-hidden relative';
+                iconBg.innerHTML = '<div class="max-badge" style="font-size: 6px;">MAX</div><i class="fa-solid fa-dragon absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/90 text-xl"></i>';
+                // Đổi trạng thái ở màn chính thành ONLINE (chỉ làm màu mè)
+                document.getElementById('status-ffmax').innerText = "ONLINE";
+                document.getElementById('status-ffmax').classList.replace('text-gray-500', 'text-laxGreen');
+            } else {
+                iconBg.className = 'w-10 h-10 rounded-lg game-icon-bg-2 overflow-hidden relative';
+                iconBg.innerHTML = '<div class="max-badge" style="background:#ff3b30; color:white; font-size: 6px;">9</div><i class="fa-solid fa-fire absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white/90 text-xl"></i>';
+                document.getElementById('status-ff').innerText = "ONLINE";
+                document.getElementById('status-ff').classList.replace('text-gray-500', 'text-laxGreen');
+            }
+
+            showScreen('mod');
+        }
+
+        // --- 4. TABS & CHỌN MOD LOGIC ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-tab').forEach(t => {
+                t.classList.remove('active', 'text-laxCyan', 'font-semibold', 'border-laxCyan');
+                t.classList.add('text-textGray', 'border-transparent');
+            });
+            const tabBtn = event.currentTarget;
+            tabBtn.classList.remove('text-textGray', 'border-transparent');
+            tabBtn.classList.add('active', 'text-laxCyan', 'font-semibold', 'border-laxCyan');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            updateFooterStatusByTab(tabId);
+        }
+
+        // Logic chọn Proxy (Chỉ 1 cái duy nhất trong toàn bộ tab Proxy)
+        function selectModProxy(element, textStatus) {
+            document.querySelectorAll('.proxy-opt').forEach(el => resetModStyle(el));
+            activeModStyle(element);
+            document.getElementById('mod-status-text').innerText = textStatus;
+        }
+
+        // Logic chọn các mục khác (Định Vị, ESP) - Có thể độc lập tuỳ group
+        function selectModGeneral(groupPrefix, element, textStatus) {
+            document.querySelectorAll('.' + groupPrefix + '-opt').forEach(el => resetModStyle(el));
+            activeModStyle(element);
+            document.getElementById('mod-status-text').innerText = textStatus;
+        }
+
+        function resetModStyle(el) {
+            el.classList.remove('active', 'border-laxCyan', 'bg-laxCyan/5');
+            el.classList.add('border-[rgba(255,255,255,0.05)]');
+            const icon = el.querySelector('.f-icon');
+            const title = el.querySelector('.f-title');
+            if(icon) { icon.classList.remove('text-laxCyan'); icon.classList.add('text-textGray'); }
+            if(title) { title.classList.remove('text-laxCyan'); title.classList.add('text-white'); }
+        }
+
+        function activeModStyle(el) {
+            el.classList.add('active', 'border-laxCyan', 'bg-laxCyan/5');
+            el.classList.remove('border-[rgba(255,255,255,0.05)]');
+            const icon = el.querySelector('.f-icon');
+            const title = el.querySelector('.f-title');
+            if(icon) { icon.classList.remove('text-textGray'); icon.classList.add('text-laxCyan'); }
+            if(title) { title.classList.remove('text-white'); title.classList.add('text-laxCyan'); }
+        }
+
+        function updateFooterStatusByTab(tabId) {
+            const st = document.getElementById('mod-status-text');
+            if(tabId === 'proxy') st.innerText = "Proxy - Hiện Vị Trí Súng & Vật Phẩm"; // Text default hoặc lấy cái đang active
+            if(tabId === 'dinhvi') st.innerText = "Định Vị - Hiện Vị Trí Súng & Vật Phẩm Trên Map";
+            if(tabId === 'modnv') st.innerText = "Mod Nhân Vật - Đang Cập Nhật Thêm Tính Năng Mới";
+            if(tabId === 'esp') st.innerText = "ESP - Nhìn Thấy Nhân Vật Xuyên Tường";
+        }
+
+        // --- 5. HỆ THỐNG LICENSE KEY ---
+        let isKeyActive = false;
+        let keyEndTime = 0;
+        let countdownTimer;
+
+        // DB Keys
+        const keysDB = {
+            'LAX-AURA-IOS': 'VINH_VIEN',
+            'KEY-1H': 60 * 60 * 1000,
+            'KEY-1D': 24 * 60 * 60 * 1000,
+            'KEY-1M': 30 * 24 * 60 * 60 * 1000,
+            'KEY-3M': 90 * 24 * 60 * 60 * 1000,
+        };
+
+        function activateKey() {
+            const val = document.getElementById('input-key').value.trim().toUpperCase();
+            const err = document.getElementById('key-error');
+            
+            if(!val) { err.innerText = "Vui lòng nhập key!"; return; }
+
+            if(keysDB[val]) {
+                isKeyActive = true;
+                err.innerText = "";
+                
+                if(keysDB[val] === 'VINH_VIEN') {
+                    keyEndTime = 'VINH_VIEN';
+                } else {
+                    keyEndTime = Date.now() + keysDB[val];
+                }
+                
+                updateKeyUI();
+                closeModal('keyModal');
+                document.getElementById('input-key').value = "";
+            } else {
+                err.innerText = "Key không hợp lệ hoặc đã hết hạn!";
+            }
+        }
+
+        function updateKeyUI() {
+            const dot = document.getElementById('key-status-dot');
+            const text = document.getElementById('key-status-text');
+            const glow = document.getElementById('key-active-glow');
+            
+            if(countdownTimer) clearInterval(countdownTimer);
+
+            if(isKeyActive) {
+                dot.classList.replace('bg-gray-500', 'bg-laxGreen');
+                dot.classList.add('shadow-[0_0_8px_#32d74b]');
+                glow.classList.remove('hidden');
+                
+                if(keyEndTime === 'VINH_VIEN') {
+                    text.innerHTML = `<span class="text-laxGreen font-semibold">Đã kích hoạt — Vĩnh viễn</span>`;
+                } else {
+                    countdownTimer = setInterval(updateTime, 1000);
+                    updateTime();
+                }
+            } else {
+                dot.classList.replace('bg-laxGreen', 'bg-gray-500');
+                dot.classList.remove('shadow-[0_0_8px_#32d74b]');
+                glow.classList.add('hidden');
+                text.innerText = "Chưa kích hoạt — nhấn Thêm Key";
+            }
+        }
+
+        function updateTime() {
+            const now = Date.now();
+            const text = document.getElementById('key-status-text');
+            
+            if(now >= keyEndTime) {
+                clearInterval(countdownTimer);
+                isKeyActive = false;
+                updateKeyUI();
+                return;
+            }
+
+            let diff = keyEndTime - now;
+            let d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            let h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            let m = Math.floor((diff / 1000 / 60) % 60);
+            let s = Math.floor((diff / 1000) % 60);
+
+            let str = "";
+            if(d > 0) str += `${d} ngày `;
+            str += `${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}p ${s.toString().padStart(2,'0')}s`;
+
+            text.innerHTML = `<span class="text-laxGreen font-semibold">Đã kích hoạt — Còn ${str}</span>`;
+        }
+
+        // --- 6. UTILITIES ---
+        function copyUDID(btnElement) {
+            // Dùng textarea ẩn để copy (tương thích iFrame/điện thoại cũ)
+            const el = document.createElement('textarea');
+            el.value = currentUDID;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const oldText = btnElement.innerText;
+            btnElement.innerText = "Đã sao chép!";
+            setTimeout(() => { btnElement.innerText = oldText; }, 2000);
+        }
+
+        function setLang(lang, element) {
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('border-laxCyan', 'border-2', 'bg-laxCyan/5');
+                btn.classList.add('border-gray-700', 'border', 'bg-panel');
+                btn.querySelector('.active-icon').classList.add('hidden');
+            });
+            element.classList.remove('border-gray-700', 'border', 'bg-panel');
+            element.classList.add('border-laxCyan', 'border-2', 'bg-laxCyan/5');
+            element.querySelector('.active-icon').classList.remove('hidden');
+        }
+
+        window.onload = () => {
+            initDeviceInfo();
+            // Khởi tạo tab proxy
+            updateFooterStatusByTab('proxy');
+        };
+    </script>
+</body>
+</html>
